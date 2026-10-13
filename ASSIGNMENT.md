@@ -1,12 +1,29 @@
 # Assignment 2
 
-Utilities: sleep, sixfive, memdump, find, and find -exec.
+The assignment-2 branch contains both the utilities and system-call labs.
+The default lab in conf/lab.mk is syscall.
 
-Use a Linux or WSL checkout in a path without spaces:
+Run these commands in the WSL checkout at
+~/xv6 (or another path without spaces):
 
 ```sh
 make grade
+make LAB=util grade
+make clean
 make qemu
 ```
 
-The supplied utilities time estimate is 10 hours.
+For individual system-call tests:
+
+```sh
+make GRADEFLAGS=sandbox grade
+make GRADEFLAGS=attack grade
+```
+
+The GDB answers are in answers-syscall.txt. The intentionally vulnerable
+allocator is the syscall lab starter implementation, enabled only when
+LAB_SYSCALL is defined. secret.c is unchanged from that starter branch.
+
+Reported time: utilities 10 hours, system calls 11 hours. Separate records
+are in time-util.txt and time-syscall.txt; time.txt contains the active
+system-call lab estimate.
