@@ -1,0 +1,81 @@
+Traps lab answers
+=================
+
+RISC-V assembly
+---------------
+The addresses below come from user/call.asm built with the checked-in
+Makefile, GCC 15.2.0 and riscv64-linux-gnu binutils. Rebuild using
+make user/_call; addresses can change with another compiler or library.
+
+1. Function arguments use registers a0 through a7, with additional
+arguments on the stack. In main's printf call, a0 holds the format string,
+a1 holds f(8)+1 = 12, and a2 holds 13. The instruction at 0x2c is
+"li a2,13"; the instruction at 0x2e is "li a1,12".
+
+2. There is no call to f or g in main. The compiler inlined these small
+functions and evaluated f(8)+1 to the constant 12. The standalone f also
+contains the addition from g, with no separate call to g.
+
+3. printf begins at address 0x756 in this build. The call in main is at
+0x38 and disassembles as "jal 756 <printf>". The linker relaxed the
+original call sequence to jal, so there is no jalr at this point in the
+final executable. The function's address is available in user/call.sym.
+
+4. ra is 0x3c immediately after that call: the address of the instruction
+following the four-byte jal at 0x38. The same principle applies to jalr:
+it stores the address immediately after its own instruction in ra.
+
+5. The program prints "HE110 World" (without quotation marks).
+57616 decimal is 0xe110; xv6's user printf uses uppercase hexadecimal
+digits. In little-endian memory, i=0x00646c72 has bytes 72 6c 64 00,
+which the %s argument reads as "rld" followed by its null terminator.
+Combining the literal H, hexadecimal E110, literal " Wo", and "rld"
+gives the output. The included endian program runs this exact example
+and adds a newline. Its recorded output is in validation/extra-checks.txt.
+
+On a big-endian system, use i=0x726c6400 to put the same bytes in the
+same memory order. The numeric argument 57616 does not change: %x
+formats the integer's value, not its byte representation as a string.
+
+6. printf("x=%d y=%d", 3) has undefined behavior because the second
+conversion has no corresponding argument. It may consume the otherwise
+unspecified contents of the next argument register (a2) through the
+variadic argument mechanism. There is no predictable value for y, and
+no correct program may depend on one. This build's format checking also
+diagnoses the missing argument, so that malformed call is not included
+as executable test code.
+
+Backtrace
+---------
+Each C frame saves its return address at fp-8 and its caller's frame
+pointer at fp-16. The r_fp helper reads s0. backtrace walks aligned,
+strictly increasing frame pointers within the current one-page kernel
+stack, stopping before the assembly entry boundary. Bounds and ordering
+checks prevent following a corrupt link outside that stack.
+
+sys_pause calls backtrace, so bttest prints three addresses. The
+unmodified grader resolves them with riscv64-linux-gnu-addr2line and
+checks that they correspond, in order, to sysproc.c, syscall.c, and
+trap.c. panic also calls backtrace before freezing console output.
+
+Alarm
+-----
+sigalarm saves a process-private interval and handler. Negative intervals
+or non-executable/misaligned/out-of-range handler addresses are rejected.
+Zero is permitted as an executable handler address. Interval zero
+disables future delivery without discarding an active handler's context.
+
+User-mode timer interrupts count toward the interval while no handler is
+active. At expiration, usertrap saves the complete trapframe and changes
+epc to the handler, suppressing nested delivery. sigreturn restores the
+interrupted trapframe, clears the active flag, resets the tick count,
+and returns the restored a0 so the syscall dispatcher preserves it.
+sigreturn outside an active handler returns -1.
+
+New processes start with alarms disabled; fork does not inherit a timer.
+A successful exec discards old alarm configuration and any saved context,
+since they refer to the old program image. Failed exec leaves it intact.
+alarmcheck additionally tests invalid arguments, reconfiguration and
+disabling within a handler, fork, and exec from an active handler.
+
+Source: https://pdos.csail.mit.edu/6.828/2026/labs/traps.html

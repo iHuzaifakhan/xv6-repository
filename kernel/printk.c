@@ -134,12 +134,33 @@ printk(char *fmt, ...)
   return 0;
 }
 
+// Frame pointers grow toward the top of this one-page kernel stack.
+// The frame at the page boundary belongs to the assembly entry, so stop
+// before interpreting it as another C frame.
+void
+backtrace(void)
+{
+  uint64 fp = r_fp();
+  uint64 bottom = PGROUNDDOWN(fp);
+  uint64 top = bottom + PGSIZE;
+
+  printk("backtrace:\n");
+  while (fp >= bottom + 16 && fp < top && fp % 16 == 0) {
+    printk("%p\n", (void *)*(uint64 *)(fp - 8));
+    uint64 caller = *(uint64 *)(fp - 16);
+    if (caller <= fp)
+      break;
+    fp = caller;
+  }
+}
+
 void
 panic(char *s)
 {
   panicking = 1;
   printk("panic: ");
   printk("%s\n", s);
+  backtrace();
   panicked = 1; // freeze uart output from other CPUs
   for (;;)
     ;

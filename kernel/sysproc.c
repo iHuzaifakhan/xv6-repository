@@ -70,6 +70,8 @@ sys_pause(void)
   int n;
   uint ticks0;
 
+  backtrace();
+
   argint(0, &n);
   if (n < 0)
     n = 0;
@@ -87,6 +89,50 @@ sys_pause(void)
   }
   release(&tickslock);
   return 0;
+}
+
+uint64
+sys_sigalarm(void)
+{
+  int interval;
+  uint64 handler;
+  struct proc *p = myproc();
+
+  argint(0, &interval);
+  argaddr(1, &handler);
+  if (interval < 0)
+    return -1;
+  if (interval > 0) {
+    // Zero is a valid code address; compressed instructions need 2-byte
+    // alignment. Reject pointers that cannot be executed in user mode.
+    if (handler >= p->sz || (handler & 1))
+      return -1;
+    pte_t *pte = walk(p->pagetable, handler, 0);
+    if (pte == 0 || (*pte & (PTE_V | PTE_U | PTE_X)) !=
+                        (PTE_V | PTE_U | PTE_X))
+      return -1;
+  }
+
+  p->alarm_interval = interval;
+  p->alarm_handler = interval ? handler : 0;
+  p->alarm_ticks = 0;
+  // A handler may disable/reconfigure its timer before sigreturn().
+  // Keep its interrupted state until sigreturn actually restores it.
+  return 0;
+}
+
+uint64
+sys_sigreturn(void)
+{
+  struct proc *p = myproc();
+  if (!p->alarm_active)
+    return -1;
+
+  *p->trapframe = p->alarm_saved;
+  p->alarm_active = 0;
+  p->alarm_ticks = 0;
+  // syscall() writes this result into a0, so return the interrupted a0.
+  return p->trapframe->a0;
 }
 
 uint64

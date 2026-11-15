@@ -137,6 +137,12 @@ kexec(char *path, char **argv)
   p->trapframe->sp = sp;         // initial stack pointer
   proc_freepagetable(oldpagetable, oldsz);
 
+  // An old image's handler and saved registers cannot survive exec.
+  p->alarm_interval = 0;
+  p->alarm_ticks = 0;
+  p->alarm_active = 0;
+  p->alarm_handler = 0;
+
   return argc; // this ends up in a0, the first argument to main(argc, argv)
 
 bad:

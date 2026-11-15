@@ -1,0 +1,21 @@
+
+xv6 kernel is booting
+
+hart 2 starting
+hart 1 starting
+init: starting sh
+$ bttest
+backtrace:
+0x0000000080001f38
+0x0000000080001e1a
+0x0000000080001b52
+$ alarmcheck
+alarmcheck: all checks passed
+$ call
+12 13
+$ endian
+HE110 World
+$ forktest
+fork test
+fork test OK
+$ qemu-system-riscv64: terminating on signal 15 from pid 634 (make)
